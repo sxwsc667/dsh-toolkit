@@ -66,20 +66,44 @@ DSH 自带的压缩只有三条触发路径，没有一条由模型决定：
 git clone <本仓库地址> dsh-toolkit
 ```
 
-然后在你的 profile 的 `package.json` 里加依赖和 bundle。`link:` 后面那串换成你放插件目录的实际位置：
+**注意：这个插件不能挂在配置档根层，必须挂进模式自己的压缩组里。** 原因见下一节。
+
+第一步，配置档的 `package.json` 里只加依赖，不要加进启动列表：
 
 ```json
 "dependencies": {
   "dsh-tool-compact": "link:../../dsh-toolkit/dsh-tool-compact"
-},
-"dsh": {
-  "profile": {
-    "bundles": ["dsh-tool-compact"]
-  }
 }
 ```
 
-装好依赖后重启宿主生效（`bundles` 是启动时读的，热重载改不到它）。
+第二步，在你要用的那个模式的配置里加一个压缩组，把压缩后端和本插件放在一起：
+
+```yaml
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+      config:
+        thresholdRatio: 0.9
+    - id: tool-compact
+      name: dsh-tool-compact
+```
+
+`thresholdRatio` 是自动压缩的触发线，默认 0.8。调到 0.9 让自动压缩退成兜底，平时压不压交给模型。**不要关掉自动压缩**，它是上下文爆掉时的最后一道防线。
+
+第三步，确认这个包能从模式自己的目录解析到。模式里引用的插件按模式目录去找，宿主自带的包装在统一位置所以到处都有，自己装的没有；在模式目录下补一个链接即可。
+
+第四步，在配置档目录跑 `pnpm install`，重启宿主。启动配置是启动时读一次的，热重载改不到。
+
+## 为什么必须挂在组里
+
+宿主的压缩服务不是全局的，它被隔离在每种模式自己的配置里。挂在配置档根层的插件看不见它，会一直等下去，而且**不报错**——插件静默失联，界面上完全看不出来。
+
+代价是：它只在挂了压缩组的那个模式下存在。
 
 ## 已知限制
 
@@ -89,3 +113,4 @@ git clone <本仓库地址> dsh-toolkit
 - **待办表只在进程内**：宿主重启会丢掉未执行的登记。真丢了也无害，模型下一轮可以再提交。
 - **只在 `idle` 触发**：如果用户再也不发消息，会话就一直停在 idle 之外的状态，任务不会执行
   ——实际上每次回合结束都会回 idle，所以正常使用中不会卡住。
+- **只对挂了压缩组的模式可用**：别的模式里看不到这个工具。

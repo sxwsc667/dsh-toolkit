@@ -24,7 +24,7 @@ dsh-toolkit/
 | 插件 | 版本 | 状态 |
 | --- | --- | --- |
 | `dsh-tool-handoff-session` | 0.2.0 | 已在真实会话中使用 |
-| `dsh-tool-compact` | 0.1.0 | 自测通过，**尚未在真实会话中验证** |
+| `dsh-tool-compact` | 0.1.1 | 已在协作模式下启用，工具可调用 |
 
 ---
 
@@ -142,36 +142,82 @@ LangChain 的 Deep Agents 团队做过同样的事：注册一个模型可调用
 
 ## 怎么装
 
-两个插件都是 DSH 的宿主插件，装法一样。
+两个插件的装法**不一样**，先搞清楚再动手。
 
-1. 把仓库 clone 到本机任意位置：
+先把仓库 clone 到本机任意位置：
 
-   ```
-   git clone <本仓库地址> dsh-toolkit
-   ```
+```
+git clone <本仓库地址> dsh-toolkit
+```
 
-2. 在你使用的 profile 的 `package.json` 里加一条本地链接依赖。`link:` 后面换成你 clone 下来的实际位置：
+### 装 `new_work`（`dsh-tool-handoff-session`）
+
+它只依赖几个常驻服务，挂在配置档根层就行。
+
+1. 在你使用的配置档的 `package.json` 里加本地链接依赖，`link:` 后面换成你 clone 下来的实际位置：
 
    ```json
    "dependencies": {
-     "dsh-tool-handoff-session": "link:../../dsh-toolkit/dsh-tool-handoff-session",
-     "dsh-tool-compact": "link:../../dsh-toolkit/dsh-tool-compact"
+     "dsh-tool-handoff-session": "link:../../dsh-toolkit/dsh-tool-handoff-session"
    }
    ```
 
-3. 在同一个文件的 `dsh.profile.bundles` 列表里加上要装的插件名：
+2. 在同一个文件的启动列表里加上它的名字：
 
    ```json
    "dsh": {
      "profile": {
-       "bundles": ["dsh-tool-handoff-session", "dsh-tool-compact"]
+       "bundles": ["dsh-tool-handoff-session"]
      }
    }
    ```
 
-4. 装依赖，重启宿主。
+3. 在该配置档目录跑 `pnpm install`，重启宿主。
 
-`bundles` 是启动时读的，热重载改不到，所以这一步必须重启。
+### 装 `compact`（`dsh-tool-compact`）
+
+它要多走一步，原因写在下面「为什么装法不同」。
+
+1. 配置档的 `package.json` 里**只加依赖，不要加进启动列表**：
+
+   ```json
+   "dependencies": {
+     "dsh-tool-compact": "link:../../dsh-toolkit/dsh-tool-compact"
+   }
+   ```
+
+2. 在你要用的那个模式的配置文件里，加一个压缩组，把压缩后端和这个插件放在一起。
+
+   模式配置的位置：模式包自己的 `cordis.patch.yml` 里的 `plugins` 数组下。下面是一个完整例子：
+
+   ```yaml
+   - id: compaction
+     name: cordis:group
+     group: true
+     isolate:
+       compaction: true
+     config:
+       - id: compaction-basic
+         name: '@deepseek-ai/dsh-compaction-basic'
+         config:
+           thresholdRatio: 0.9
+       - id: tool-compact
+         name: dsh-tool-compact
+   ```
+
+   `thresholdRatio` 是自动压缩的触发线，默认 0.8。调到 0.9 就让自动压缩退成兜底，平时压不压交给模型判断。**不要为了"只让模型压"把自动压缩关掉**，它是上下文爆掉时的最后一道防线。
+
+3. 确保这个包能从模式自己的目录解析到。模式里引用的插件是按模式目录去找的，宿主自带的包装在统一位置所以到处都有，自己装的插件没有。在模式目录下补一个链接即可。
+
+4. 在该配置档目录跑 `pnpm install`，重启宿主。
+
+**两个插件装完都必须重启。** 启动列表和模式配置都是启动时读一次的，热重载改不到。
+
+### 为什么 `compact` 装法不同
+
+宿主的压缩服务不是一个全局的东西：它被隔离在每种模式自己的配置里。挂在配置档根层的插件看不见它，会一直等下去，而且不报错——插件静默失联，界面上看不出来。
+
+所以 `compact` 必须和压缩后端待在同一个组里。代价是它只在挂了这个组的模式下存在。
 
 ## 为什么值得单独做成插件
 
