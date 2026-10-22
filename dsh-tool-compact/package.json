@@ -1,0 +1,21 @@
+{
+  "name": "dsh-tool-compact",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness 插件：给模型一个可自行调用的 compact 工具，让它按自己的判断压缩较早的会话历史，复用宿主已有的压缩后端。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

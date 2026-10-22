@@ -1,0 +1,21 @@
+{
+  "name": "dsh-tool-handoff-session",
+  "version": "0.2.0",
+  "private": true,
+  "description": "DeepSeek Harness 插件：在指定工作区（目录）开新会话，把交接内容作为第一条消息投递进去，并差遣模型在回复末尾提醒用户切过去。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
